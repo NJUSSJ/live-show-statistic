@@ -25,9 +25,22 @@
         <el-container>
           <el-main>
             <div v-show="raceChart">
-              <RaceChart/>
+              <RaceChart />
             </div>
             <div v-show="!raceChart">
+              <vue-word-cloud
+                style="height: 480px; width: 100%"
+                :words="testData"
+                :color="
+                  ([, weight]) =>
+                    weight > 10
+                      ? 'DeepPink'
+                      : weight > 5
+                      ? 'RoyalBlue'
+                      : 'Indigo'
+                "
+                font-family="Roboto"
+              />
             </div>
           </el-main>
         </el-container>
@@ -37,29 +50,37 @@
 </template>
 
 <script>
-import Header from '@/components/Header'
-import RaceChart from '@/components/RaceChart'
+/* eslint-disable */
+import Header from "@/components/Header";
+import RaceChart from "@/components/RaceChart";
+import VueWordCloud from "vuewordcloud";
 export default {
-  name: 'Index',
-  components: {Header, RaceChart},
-  data () {
+  name: "Index",
+  components: { Header, RaceChart, VueWordCloud },
+  data() {
     return {
-      raceChart: true
-    }
+      raceChart: true,
+      testData: [
+                  ['起飞', 19],
+                  ['芜湖', 3],
+                  ['黄头发妹妹', 7],
+                  ['再见', 3],
+                ]
+    };
   },
   methods: {
-    handleSelect (key, keyPath) {
+    handleSelect(key, keyPath) {
       switch (key) {
-        case '1':
-          this.raceChart = true
-          break
-        case '2':
-          this.raceChart = false
-          break
+        case "1":
+          this.raceChart = true;
+          break;
+        case "2":
+          this.raceChart = false;
+          break;
       }
-    }
-  }
-}
+    },
+  },
+};
 </script>
 
 <style scope>

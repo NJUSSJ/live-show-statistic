@@ -66,7 +66,7 @@ export default {
   },
   mounted() {
     // this.init();
-    this.$socket.emit("connect");
+    // this.$socket.emit("connect");
   },
   methods: {
     async init() {
