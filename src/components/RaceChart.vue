@@ -1,15 +1,20 @@
 <template>
   <div>
-    <svg :width="width" :height="height">
-      <g transform="translate(0, 40)" id="race-bar">
-        <text :x="innerWidth - 90" :y="innerHeight - 140" class="dateLabel">
-          {{ dateLabel }}
-        </text>
-        <text :x="innerWidth - 100" :y="innerHeight - 50" class="yearLabel">
-          {{ yearLabel }}
-        </text>
-      </g>
-    </svg>
+    <div id="title-container">
+      <span id="title">{{this.title}}</span>
+    </div>
+    <div id="chart-container">
+      <svg :width="width" :height="height">
+        <g transform="translate(0, 40)" id="race-bar">
+          <text :x="innerWidth - 90" :y="innerHeight - 140" class="dateLabel">
+            {{ dateLabel }}
+          </text>
+          <text :x="innerWidth - 100" :y="innerHeight - 50" class="yearLabel">
+            {{ yearLabel }}
+          </text>
+        </g>
+      </svg>
+    </div>
   </div>
 </template>
 
@@ -32,16 +37,20 @@ export default {
       type: Number,
       default: 500,
     },
-    excludeChina: {
-      type: Boolean,
-      default: true,
+    id: {
+      type: Number,
+      default: 1
     },
+    title: {
+      type: String,
+      default: '直播板块热度排行'
+    }
   },
   data() {
     return {
       isLoading: false,
       width: 1000,
-      height: 700,
+      height: 600,
       margin: { left: 120, right: 90, top: 40, bottom: 0 },
       curDate: null,
       lastDate: null,
@@ -66,7 +75,7 @@ export default {
   },
   mounted() {
     // this.init();
-    // this.$socket.emit("connect");
+    this.$socket.emit("getConnect");
   },
   methods: {
     async init() {
@@ -475,7 +484,7 @@ export default {
     },
     connect() {
       console.log("connect");
-      this.$socket.emit("getData");
+      this.$socket.emit("getMockData", this.id);
     },
     disconnect() {
       console.log("disconnect");
@@ -511,12 +520,29 @@ export default {
   font-weight: bold;
   fill: #ccc;
 }
+
 .dateLabel {
   font-size: 50px;
   font-weight: bold;
   fill: #ccc;
 }
+
 .label {
   text-align: right;
+}
+
+#title {
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 18px;
+  float: left;
+  margin-left: 5%;
+}
+
+#title-container {
+  margin: 0 auto;
+  width: 1000px;
+  display: flex;
+  align-items: center;
 }
 </style>

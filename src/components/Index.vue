@@ -13,21 +13,22 @@
           >
             <el-menu-item index="1">
               <i class="el-icon-location"></i>
-              <span slot="title">板块热度</span>
+              <span slot="title">Streaming</span>
             </el-menu-item>
 
             <el-menu-item index="2">
               <i class="el-icon-menu"></i>
-              <span slot="title">弹幕词云</span>
+              <span slot="title">GraphX</span>
             </el-menu-item>
           </el-menu>
         </el-aside>
         <el-container>
           <el-main>
-            <div v-show="raceChart">
+            <div id="streaming-container" v-show="Streaming">
               <RaceChart />
             </div>
-            <div v-show="!raceChart">
+            <div id="graphx-container" v-show="!Streaming"></div>
+            <!-- <div v-show="!raceChart">
               <vue-word-cloud
                 style="height: 480px; width: 100%"
                 :words="testData"
@@ -41,7 +42,7 @@
                 "
                 font-family="Roboto"
               />
-            </div>
+            </div> -->
           </el-main>
         </el-container>
       </el-container>
@@ -59,7 +60,7 @@ export default {
   components: { Header, RaceChart, VueWordCloud },
   data() {
     return {
-      raceChart: true,
+      Streaming: true,
       testData: [
                   ['起飞', 19],
                   ['芜湖', 3],
@@ -72,10 +73,10 @@ export default {
     handleSelect(key, keyPath) {
       switch (key) {
         case "1":
-          this.raceChart = true;
+          this.Streaming = true;
           break;
         case "2":
-          this.raceChart = false;
+          this.Streaming = false;
           break;
       }
     },
@@ -118,5 +119,13 @@ export default {
 
 .el-menu {
   height: 100%;
+}
+
+#btn-container {
+  width: 1000px;
+  height: 10%;
+  display: flex;
+  align-items: center;
+  margin: 0 auto;
 }
 </style>
