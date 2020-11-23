@@ -3,17 +3,35 @@
     <span class="logo">
       Live Show Dashboard
     </span>
-    <el-button type="primary" id="start-btn">START</el-button>
-    <el-button id="return button">Return</el-button>
+    <el-button type="primary" id="start-btn" @click="start" :disabled='startDiasble' v-show="startShow">START</el-button>
+    <el-button id="return button" v-show="returnShow" @click="back">Return</el-button>
   </div>
 </template>
 <script>
 export default {
   name: 'Header',
   props: {
-    showReturn: {
+    startShow: {
       type: Boolean,
-      default: false
+      default: true
+    },
+    returnShow: {
+      type: Boolean
+    },
+    startDiasble: {
+      type: Boolean
+    }
+  },
+  data () {
+    return {
+    }
+  },
+  methods: {
+    start () {
+      this.$emit('start')
+    },
+    back () {
+      this.$emit('return')
     }
   }
 }

@@ -3,7 +3,7 @@
     <div id="title-container">
       <span id="title">{{this.title}}</span>
     </div>
-    <div id="chart-container">
+    <div id="chart-container" v-loading="isLoading" element-loading-background="rgba(0, 0, 0, 0)">
       <svg :width="width" :height="height">
         <g transform="translate(0, 40)" id="race-bar">
           <text :x="innerWidth - 90" :y="innerHeight - 140" class="dateLabel">
@@ -22,6 +22,7 @@
 /* eslint-disable */
 import * as d3 from "d3";
 import * as moment from "moment";
+import bus from '../event-bus'
 export default {
   name: "RaceChart",
   props: {
@@ -35,7 +36,7 @@ export default {
     },
     interval: {
       type: Number,
-      default: 500,
+      default: 800,
     },
     id: {
       type: Number,
@@ -44,11 +45,18 @@ export default {
     title: {
       type: String,
       default: '直播板块热度排行'
-    }
+    },
+    raceData: {
+      type: Array,
+      default: () => []
+    },
+    current: {
+      type: String,
+      default: 'category'
+    }  
   },
   data() {
     return {
-      isLoading: false,
       width: 1000,
       height: 600,
       margin: { left: 120, right: 90, top: 40, bottom: 0 },
@@ -59,7 +67,8 @@ export default {
       timer: null,
       dataList: [],
       g: null,
-      topAxis: null
+      topAxis: null,
+      isLoading: false
     };
   },
   computed: {
@@ -75,231 +84,25 @@ export default {
   },
   mounted() {
     // this.init();
-    this.$socket.emit("getConnect");
+    this.$socket.emit("connect");
+  },
+  created () {
+    bus.$on('raceData', (raceData) => {
+      if (raceData.length === 0) {
+        if (this.g != null) {
+          this.g.selectAll("g.bar.active").remove()
+        }
+        this.isLoading = true
+      } else {
+        this.isLoading = false
+        this.dataList = raceData
+        console.log(this.dataList)
+        this.renderMockData()
+      }
+      
+    })
   },
   methods: {
-    async init() {
-      this.isLoading = true;
-      this.dataList = await this.getDataFromCsv(this.csvUrl);
-      console.log(this.dataList);
-      this.renderData();
-      this.isLoading = false;
-    },
-    getDataFromCsv(url) {
-      return new Promise((resolve, reject) => {
-        d3.csv(url)
-          .then((d) => {
-            const china = this.excludeChina ? "China" : "Something Else";
-            const data = [];
-
-            this.lastDate = d[d.length - 1].date;
-            d.forEach((ob) => {
-              let date = null;
-              for (let k in ob) {
-                if (k === "date") {
-                  date = ob[k];
-                } else {
-                  if (
-                    k.trim() === "World" ||
-                    k.trim() === china ||
-                    k.trim() === "International"
-                  ) {
-                    //pass
-                  } else {
-                    const idx = data.findIndex((dd) => dd.country === k);
-                    if (idx < 0) {
-                      const ss = {};
-                      ss.country = k;
-                      ss[date] = ob[k];
-                      data.push(ss);
-                    } else {
-                      data[idx][date] = ob[k];
-                    }
-                  }
-                }
-              }
-            });
-            resolve(data);
-          })
-          .catch((e) => {
-            reject(e);
-          });
-      });
-    },
-    renderData() {
-      if (this.timer) this.timer.stop();
-      const g = d3.select("#race-bar");
-      const topAxis = g.append("g").attr("transform", `translate(50, 0)`);
-
-      let curDate = this.curDate;
-      this.timer = d3.interval(() => {
-        let tickData = this.dataList
-          .sort((a, b) => {
-            return d3.descending(+a[curDate], +b[curDate]);
-          })
-          .slice(0, this.topN);
-        /* Set scale and coordinate axis --start */
-        const xScale = d3.scaleLinear(
-          [0, d3.max(tickData, (d) => +d[curDate])],
-          [0, this.innerWidth]
-        );
-        const yScale = d3
-          .scaleBand(
-            tickData.map((it) => it["country"]),
-            [0, this.innerHeight]
-          )
-          .padding(0.2);
-
-        const xAxis = d3.axisTop(xScale).ticks(4);
-
-        /* Set scale and coordinate axis --end */
-
-        const dataG = g
-          .selectAll("g.bar.active")
-          .data(tickData, (d) => d["country"]);
-        if (dataG.size()) {
-          // new bar
-          const newG = dataG.enter().append("g").attr("class", "bar active");
-          newG
-            .append("rect")
-            .on("click", (e, d) => console.log(d["country"]))
-            .attr("cursor", "pointer")
-            .attr("width", (d) => xScale(d[curDate]))
-            .attr("height", (d) => yScale.bandwidth())
-            .attr("y", this.innerHeight)
-            .attr("x", 50)
-            .attr("fill", (d) => this.colorScale(d["country"]))
-            .attr("fill-opacity", 0.6)
-            .transition()
-            .duration(this.interval)
-            .ease(d3.easeLinear)
-            .attr("y", (d) => yScale(d["country"]));
-          newG
-            .append("text")
-            .text((d) => d3.format(",")(d[curDate]))
-            .attr("class", "num")
-            .attr("y", (d) => this.innerHeight)
-            .attr("x", (d) => xScale(d[curDate]) + 62)
-            .attr("dy", (d) => yScale.bandwidth() / 2 + 15)
-            .transition()
-            .duration(this.interval)
-            .ease(d3.easeLinear)
-            .attr("y", (d) => yScale(d["country"]));
-
-          newG
-            .append("text")
-            .text((d) => d["country"])
-            .attr("class", "label")
-            .attr("font-weight", "bold")
-            .attr("y", this.innerHeight)
-            .attr("x", (d) => xScale(d[curDate]) + 62)
-            .attr("dy", (d) => yScale.bandwidth() / 2 - 2)
-            .transition()
-            .duration(this.interval)
-            .ease(d3.easeLinear)
-            .attr("y", (d) => yScale(d["country"]));
-
-          // upate bar
-          dataG
-            .select("rect")
-            .transition()
-            .duration(this.interval)
-            .ease(d3.easeLinear)
-            .attr("width", (d) => xScale(d[curDate]))
-            .attr("y", (d) => yScale(d["country"]));
-
-          dataG
-            .select("text.num")
-            .transition()
-            .duration(this.interval)
-            .ease(d3.easeLinear)
-            .tween("text", function (d) {
-              const prev = d3.select(this).text().replace(/,/g, "");
-              const i = d3.interpolateRound(prev, +d[curDate]);
-              return function (t) {
-                d3.select(this).text(d3.format(",")(i(t)));
-              };
-            })
-            .attr("y", (d) => yScale(d["country"]))
-            .attr("x", (d) => xScale(d[curDate]) + 62);
-
-          dataG
-            .select("text.label")
-            .transition()
-            .duration(this.interval)
-            .ease(d3.easeLinear)
-            .attr("x", (d) => xScale(d[curDate]) + 62)
-            .attr("y", (d) => yScale(d["country"]));
-
-          // delete bar
-          dataG
-            .exit()
-            .attr("class", "bar")
-            .transition()
-            .duration(this.interval)
-            .ease(d3.easeLinear)
-            .attr("transform", `translate(0, ${this.innerHeight})`)
-            .remove();
-
-          topAxis
-            .transition()
-            .duration(this.interval)
-            .call(xAxis)
-            .selectAll("line")
-            .attr("y2", this.innerHeight)
-            .attr("stroke", "white")
-            .attr("y1", -6);
-        } else {
-          const res = dataG.enter().append("g").attr("class", "bar active");
-
-          res
-            .append("rect")
-            .attr("fill", (d, i) => {
-              return this.colorScale(d["country"]);
-            })
-            .attr("cursor", "pointer")
-            .attr("fill-opacity", 0.6)
-            .attr("width", (d) => xScale(d[curDate]))
-            .attr("height", (d) => yScale.bandwidth())
-            .attr("y", (d) => yScale(d["country"]))
-            .attr("x", 50)
-            .on("click", (e, d) => console.log(d["country"]));
-
-          res
-            .append("text")
-            .text((d) => d3.format(",")(d[curDate]))
-            .attr("class", "num")
-            .attr("y", (d) => yScale(d["country"]))
-            .attr("x", (d) => xScale(d[curDate]) + 62)
-            .attr("dy", (d) => yScale.bandwidth() / 2 + 15);
-
-          res
-            .append("text")
-            .text((d) => d["country"])
-            .attr("class", "label")
-            .attr("font-weight", "bold")
-            .attr("y", (d) => yScale(d["country"]))
-            .attr("x", (d) => xScale(d[curDate]) + 62)
-            .attr("dy", (d) => yScale.bandwidth() / 2 - 2);
-
-          topAxis.call(xAxis);
-          topAxis
-            .selectAll("line")
-            .attr("y2", innerHeight)
-            .attr("stroke", "white");
-          topAxis.selectAll("line").attr("y1", -6);
-        }
-
-        const tomorrow = moment(curDate).add(1, "days");
-        const dateEnd = moment(this.lastDate);
-        if (tomorrow > dateEnd) {
-          this.timer.stop();
-        } else {
-          curDate = tomorrow.format("YYYY-MM-DD");
-          this.curDate = curDate;
-        }
-      }, this.interval);
-    },
     renderMockData() {
       if (this.g == null) {
         this.g = d3.select("#race-bar");
@@ -310,8 +113,7 @@ export default {
       }
       const topAxis = this.topAxis;
 
-      let curDate = this.dataList[0]['currentDate'];
-      this.curDate = curDate;
+      let curDate = this.dataList[0]['currentTime'];
 
       let tickData = this.dataList
         .sort((a, b) => d3.descending(+a[curDate], +b[curDate]))
@@ -319,12 +121,24 @@ export default {
 
       /* Set scale and coordinate axis --start */
       const xScale = d3.scaleLinear(
-        [0, d3.max(tickData, (d) => +d[curDate])],
+        [0, d3.max(tickData, (d) => d[curDate])],
         [0, this.innerWidth]
       );
+
+      // console.log(xScale)
+
+      // const xScale = (num, width = this.innerWidth) => {
+      //   let result = num / d3.max(tickData, (d) => d[curDate]) * width;
+      //   if (Number.isNaN(result)) {
+      //     console.log(num + ' ' + d3.max(tickData, (d) => d[curDate]) + '!!!!!!')
+      //   }
+      //   return result;
+      // }
+      // const xScale = (d) => d / (d3.max(tickData, (d) => d[curDate])) * this.innerWidth
+      
       const yScale = d3
         .scaleBand(
-          tickData.map((it) => it["country"]),
+          tickData.map((it) => it["category"]),
           [0, this.innerHeight]
         )
         .padding(0.2);
@@ -333,48 +147,48 @@ export default {
       /* Set scale and coordinate axis --end */
       const dataG = g
         .selectAll("g.bar.active")
-        .data(tickData, (d) => d["country"]);
+        .data(tickData, (d) => d["category"]);
       if (dataG.size()) {
         // new bar
         const newG = dataG.enter().append("g").attr("class", "bar active");
         newG
           .append("rect")
-          .on("click", (e, d) => console.log(d["country"]))
+          .on("click", (e, d) => this.handleClick(d['category'], d['nickname']))
           .attr("cursor", "pointer")
           .attr("width", (d) => xScale(d[curDate]))
           .attr("height", (d) => yScale.bandwidth())
           .attr("y", this.innerHeight)
           .attr("x", 50)
-          .attr("fill", (d) => this.colorScale(d["country"]))
+          .attr("fill", (d) => this.colorScale(d["category"]))
           .attr("fill-opacity", 0.6)
           .transition()
           .duration(this.interval)
           .ease(d3.easeLinear)
-          .attr("y", (d) => yScale(d["country"]));
+          .attr("y", (d) => yScale(d["category"]));
         newG
           .append("text")
           .text((d) => d3.format(",")(d[curDate]))
           .attr("class", "num")
           .attr("y", (d) => this.innerHeight)
-          .attr("x", (d) => xScale(d[curDate]) + 62)
+          .attr("x", (d) => (xScale(d[curDate]) + 62))
           .attr("dy", (d) => yScale.bandwidth() / 2 + 15)
           .transition()
           .duration(this.interval)
           .ease(d3.easeLinear)
-          .attr("y", (d) => yScale(d["country"]));
+          .attr("y", (d) => yScale(d["category"]));
 
         newG
           .append("text")
-          .text((d) => d["country"])
+          .text((d) => d["nickname"])
           .attr("class", "label")
           .attr("font-weight", "bold")
           .attr("y", this.innerHeight)
-          .attr("x", (d) => xScale(d[curDate]) + 62)
+          .attr("x", (d) => (xScale(d[curDate]) + 62))
           .attr("dy", (d) => yScale.bandwidth() / 2 - 2)
           .transition()
           .duration(this.interval)
           .ease(d3.easeLinear)
-          .attr("y", (d) => yScale(d["country"]));
+          .attr("y", (d) => yScale(d["category"]));
 
         // upate bar
         dataG
@@ -383,7 +197,7 @@ export default {
           .duration(this.interval)
           .ease(d3.easeLinear)
           .attr("width", (d) => xScale(d[curDate]))
-          .attr("y", (d) => yScale(d["country"]));
+          .attr("y", (d) => yScale(d["category"]));
 
         dataG
           .select("text.num")
@@ -397,16 +211,16 @@ export default {
               d3.select(this).text(d3.format(",")(i(t)));
             };
           })
-          .attr("y", (d) => yScale(d["country"]))
-          .attr("x", (d) => xScale(d[curDate]) + 62);
+          .attr("y", (d) => yScale(d["category"]))
+          .attr("x", (d) => (xScale(+d[curDate]) + 62));
 
         dataG
           .select("text.label")
           .transition()
           .duration(this.interval)
           .ease(d3.easeLinear)
-          .attr("x", (d) => xScale(d[curDate]) + 62)
-          .attr("y", (d) => yScale(d["country"]));
+          .attr("x", (d) => (xScale(+d[curDate]) + 62))
+          .attr("y", (d) => yScale(d["category"]));
 
         // delete bar
         dataG
@@ -432,31 +246,31 @@ export default {
         res
           .append("rect")
           .attr("fill", (d, i) => {
-            return this.colorScale(d["country"]);
+            return this.colorScale(d["category"]);
           })
           .attr("cursor", "pointer")
           .attr("fill-opacity", 0.6)
-          .attr("width", (d) => xScale(d[curDate]))
+          .attr("width", (d) => xScale(+d[curDate]))
           .attr("height", (d) => yScale.bandwidth())
-          .attr("y", (d) => yScale(d["country"]))
+          .attr("y", (d) => yScale(d["category"]))
           .attr("x", 50)
-          .on("click", (e, d) => console.log(d["country"]));
+          .on("click", (e, d) => this.handleClick(d["category"], d['nickname']));
 
         res
           .append("text")
           .text((d) => d3.format(",")(d[curDate]))
           .attr("class", "num")
-          .attr("y", (d) => yScale(d["country"]))
-          .attr("x", (d) => xScale(d[curDate]) + 62)
+          .attr("y", (d) => yScale(d["category"]))
+          .attr("x", (d) => (xScale(+d[curDate]) + 62))
           .attr("dy", (d) => yScale.bandwidth() / 2 + 15);
 
         res
           .append("text")
-          .text((d) => d["country"])
+          .text((d) => d["nickname"])
           .attr("class", "label")
           .attr("font-weight", "bold")
-          .attr("y", (d) => yScale(d["country"]))
-          .attr("x", (d) => xScale(d[curDate]) + 62)
+          .attr("y", (d) => yScale(d["category"]))
+          .attr("x", (d) => (xScale(+d[curDate]) + 62))
           .attr("dy", (d) => yScale.bandwidth() / 2 - 2);
 
         topAxis.call(xAxis);
@@ -469,26 +283,33 @@ export default {
 
       this.curDate = curDate;
     },
+    handleClick(category, nickname) {
+      if (this.current === 'category') {
+        bus.$emit('categoryRaceData', category, nickname);
+      } else if (this.current === 'recent-category') {
+        bus.$emit('recentCategoryRaceData', category, nickname);
+      } else if (this.current === 'recent-host'){
+        bus.$emit('hostWordCloud', category, nickname);
+      }
+    }
   },
   watch: {
     curDate(val) {
-      this.yearLabel = moment(val).format("YYYY");
-      this.dateLabel = moment(val).format("DD MMM");
-    },
+      if (val < '12:00') {
+        this.yearLabel = moment().format("MM-DD");
+      } else {
+        this.yearLabel = this.current === 'recent-category' || this.current === 'recent-host'? moment().format("MM-DD") : moment().subtract(1, 'days').format("MM-DD");
+      }
+      this.dateLabel = val;
+    }
   },
   sockets: {
-    newData(data) {
-      console.log(data);
-      this.dataList = data;
-      this.renderMockData();
-    },
     connect() {
       console.log("connect");
-      this.$socket.emit("getMockData", this.id);
     },
     disconnect() {
       console.log("disconnect");
-    },
+    }
   },
 };
 </script>
