@@ -2,7 +2,7 @@
   <div class="container">
     <el-container>
       <el-header height="60px">
-        <Header @start='handleStart' @return='handleReturn' :startShow='startShow' :returnShow='returnShow' :startDiasble='startDiasble'/>
+        <Header @start='handleStart' @return='handleReturn' :startShow='startShow' :returnShow='returnShow' :startDiasble='startDiasble' :Streaming='Streaming'/>
       </el-header>
       <el-container>
         <el-aside width="200px">
@@ -102,6 +102,9 @@ export default {
       }
     },
     async handleStart() {
+      this.initWithOldData()
+    },
+    async initWithOldData() {
       if (this.timeId != null) {
         clearInterval(this.timeId)
       }
@@ -110,7 +113,7 @@ export default {
       this.startDiasble = true;
       this.startShow = true;
       this.returnShow = true;
-      this.title = '昨日直播板块热度排行'
+      this.title = '昨日 直播板块热度排行'
       this.current = 'category'
 
       let response = await fetch('http://127.0.0.1:5000/hot')
@@ -150,6 +153,42 @@ export default {
       //   bus.$emit('raceData', tmpData)
       // }
     },
+    async initWithRecentData () {
+      if (this.timeId != null) {
+        clearInterval(this.timeId)
+      }
+      
+      bus.$emit('raceData', [])
+      
+      this.current = 'recent-category'
+      this.title = '当前 直播热度排行'
+      this.startDiasble = false
+      this.returnShow = false
+      this.startShow = true
+
+      let response = await fetch('http://127.0.0.1:5000/hot?latest=1')
+      let json = await response.json()
+
+      let list = json.list
+
+      let tmpData = []
+      let currentTime = moment().format('h:mm')
+      console.log(currentTime)
+      for (let i = 0; i < list.length; i++) {
+        let index = tmpData.findIndex(dd => dd.category === list.name)
+          if (index < 0) {
+            let ss = {
+              'category': list[i].name,
+              'nickname': list[i].nickname,
+              'currentTime': currentTime
+            }
+            ss[currentTime] = Number.isNaN(list[i].hot) ? 10 : list[i].hot
+            tmpData.push(ss)
+          }
+      }
+
+      bus.$emit('raceData', tmpData)
+    },
     async handleCategoryRaceData(category, nickname) {
       if (this.timeId != null) {
         clearInterval(this.timeId)
@@ -157,7 +196,7 @@ export default {
       bus.$emit('raceData', [])
 
       this.returnShow = true
-      this.title = nickname + "昨日主播热度排行"
+      this.title = nickname + " 昨日主播热度排行"
       this.current = 'host'
       this.currentCategory = category
 
@@ -188,45 +227,6 @@ export default {
         this.hostHotPointer ++
       }, 1000)
     },
-    async handleHostWorlCloud(host) {
-      console.log(host)
-      this.current = 'word-cloud'
-    },
-    async initWithRecentData () {
-      if (this.timeId != null) {
-        clearInterval(this.timeId)
-      }
-      
-      bus.$emit('raceData', [])
-      
-      this.current = 'recent-category'
-      this.title = '当前直播热度排行'
-      this.startDiasble = false
-      this.returnShow = false
-
-      let response = await fetch('http://127.0.0.1:5000/hot?latest=1')
-      let json = await response.json()
-
-      let list = json.list
-
-      let tmpData = []
-      let currentTime = moment().format('h:mm')
-      console.log(currentTime)
-      for (let i = 0; i < list.length; i++) {
-        let index = tmpData.findIndex(dd => dd.category === list.name)
-          if (index < 0) {
-            let ss = {
-              'category': list[i].name,
-              'nickname': list[i].nickname,
-              'currentTime': currentTime
-            }
-            ss[currentTime] = Number.isNaN(list[i].hot) ? 10 : list[i].hot
-            tmpData.push(ss)
-          }
-      }
-
-      bus.$emit('raceData', tmpData)
-    },
     async handleRecentCategoryData(category, nickname) {
       if (this.timeId != null) {
         clearInterval(this.timeId)
@@ -234,7 +234,8 @@ export default {
       bus.$emit('raceData', [])
 
       this.returnShow = true
-      this.title = nickname + "当前主播热度排行"
+      this.startShow = false
+      this.title = nickname + " 当前主播热度排行"
       this.current = 'recent-host'
       this.currentCategory = category
       this.currentNickname = nickname
@@ -262,6 +263,10 @@ export default {
 
       bus.$emit('raceData', tmpData)
 
+    },
+    async handleHostWorlCloud(host) {
+      console.log(host)
+      this.current = 'word-cloud'
     },
     handleReturn () {
       if (this.current === 'word-cloud') {
@@ -331,11 +336,4 @@ export default {
   height: 100%;
 }
 
-#btn-container {
-  width: 1000px;
-  height: 10%;
-  display: flex;
-  align-items: center;
-  margin: 0 auto;
-}
 </style>

@@ -1,6 +1,6 @@
 <template>
   <div id="graphx-container">
-    <div id="echart" style="width: 1200px;height:1000px; margin: 0 auto">
+    <div id="echart" style="width: 1200px;height:700px; margin: 0 auto">
 
     </div>
   </div>
