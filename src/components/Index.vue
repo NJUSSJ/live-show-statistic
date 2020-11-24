@@ -272,7 +272,7 @@ export default {
           })
           this.testData = wordData
           console.log(this.testData)
-        }, 5000)
+        }, 3000)
       } else {
         console.log('start failed')
       }
