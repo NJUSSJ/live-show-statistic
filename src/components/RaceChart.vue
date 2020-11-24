@@ -302,15 +302,7 @@ export default {
       }
       this.dateLabel = val;
     }
-  },
-  sockets: {
-    connect() {
-      console.log("connect");
-    },
-    disconnect() {
-      console.log("disconnect");
-    }
-  },
+  }
 };
 </script>
 

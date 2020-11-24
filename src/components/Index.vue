@@ -26,17 +26,23 @@
           <el-main>
             <div id="streaming-container" v-show="Streaming">
               <RaceChart :title="title" :current='current' v-show="current !== 'word-cloud'"/>
-              <div v-show="current === 'word-cloud'">
+              <div v-show="current === 'word-cloud'" id='word-cloud-container'>
                 <vue-word-cloud
-                  style="height: 480px; width: 100%"
+                  style="height: 480px; width: 100%; margin-top: 100px"
                   :words="testData"
                   :color="
                     ([, weight]) =>
-                      weight > 10
-                        ? 'DeepPink'
-                        : weight > 5
-                        ? 'RoyalBlue'
-                        : 'Indigo'
+                      weight > 100
+                        ? 'rgba(129, 166, 202, 1)'
+                        : weight > 75
+                        ? 'rgba(143, 174, 129, 1)'
+                        : weight > 25
+                        ? 'rgba(143, 189, 134, 1)'
+                        : weight > 15
+                        ? 'rgba(213, 130, 127, 1)'
+                        : weight > 10
+                        ? 'rgba(207, 207, 139, 1)'
+                        : 'rgba(173, 148, 144, 1)'
                   "
                   font-family="Roboto"
                 />
@@ -69,12 +75,7 @@ export default {
   data() {
     return {
       Streaming: true,
-      testData: [
-                  ['起飞', 19],
-                  ['芜湖', 3],
-                  ['黄头发妹妹', 7],
-                  ['再见', 3],
-                ],
+      testData: [],
       title: '当前直播板块热度排行',
       timeId: null,
       categortHotPointer: 0,
@@ -86,7 +87,9 @@ export default {
 
       current: 'recent-category',
       currentCategory: null,
-      currentNickname: null
+      currentNickname: null,
+
+      wordCloudTimeId: null
     };
   },
 
@@ -103,12 +106,14 @@ export default {
     },
     async handleStart() {
       this.initWithOldData()
+      this.handleStopHostWorlCloud()
     },
     async initWithOldData() {
       if (this.timeId != null) {
         clearInterval(this.timeId)
       }
 
+      // 处理页面状态
       bus.$emit('raceData', [])
       this.startDiasble = true;
       this.startShow = true;
@@ -116,28 +121,24 @@ export default {
       this.title = '昨日 直播板块热度排行'
       this.current = 'category'
 
+      // 获取数据
       let response = await fetch('http://127.0.0.1:5000/hot')
       let json = await response.json()
 
       this.categortHotPointer = 0
       this.timeId = setInterval(() => {
+        // format data 
         let tmpData = []
         if (this.categortHotPointer >= json.length) clearInterval(this.timeId)
         let topList = json[this.categortHotPointer].list
         for (let j = 0; j < topList.length; j++) {
-          let index = tmpData.findIndex(dd => dd.category === topList[j].name)
-          if (index < 0) {
-            let ss = {
-              'category': topList[j].name,
-              'nickname': topList[j].nickname,
-              'currentTime': json[this.categortHotPointer].timeStamp
-            }
-            ss[json[this.categortHotPointer].timeStamp] = Number.isNaN(topList[j].hot) ? 10 : topList[j].hot
-            tmpData.push(ss)
-          } else {
-            tmpData[index][json[this.categortHotPointer].timeStamp] = Number.isNaN(topList[j].hot) ? 10 : topList[j].hot
-            tmpData[index].currentTime = json[this.categortHotPointer].timeStamp
+          let ss = {
+            'category': topList[j].name,
+            'nickname': topList[j].nickname,
+            'currentTime': json[this.categortHotPointer].timeStamp
           }
+          ss[json[this.categortHotPointer].timeStamp] = Number.isNaN(topList[j].hot) ? 10 : topList[j].hot
+          tmpData.push(ss)
         }
         bus.$emit('raceData', tmpData)
         this.categortHotPointer ++
@@ -172,19 +173,16 @@ export default {
       let list = json.list
 
       let tmpData = []
-      let currentTime = moment().format('h:mm')
+      let currentTime = moment().format('H:mm')
       console.log(currentTime)
       for (let i = 0; i < list.length; i++) {
-        let index = tmpData.findIndex(dd => dd.category === list.name)
-          if (index < 0) {
-            let ss = {
-              'category': list[i].name,
-              'nickname': list[i].nickname,
-              'currentTime': currentTime
-            }
-            ss[currentTime] = Number.isNaN(list[i].hot) ? 10 : list[i].hot
-            tmpData.push(ss)
-          }
+        let ss = {
+          'category': list[i].name,
+          'nickname': list[i].nickname,
+          'currentTime': currentTime
+        }
+        ss[currentTime] = Number.isNaN(list[i].hot) ? 10 : list[i].hot
+        tmpData.push(ss)
       }
 
       bus.$emit('raceData', tmpData)
@@ -209,19 +207,13 @@ export default {
         if (this.hostHotPointer >= json.length) clearInterval(this.timeId)
         let topList = json[this.hostHotPointer].list
         for (let j = 0; j < topList.length; j++) {
-          let index = tmpData.findIndex(dd => dd.category === topList[j].host)
-          if (index < 0) {
-            let ss = {
-              'category': topList[j].host,
-              'nickname': topList[j].host,
-              'currentTime': json[this.hostHotPointer].time
-            }
-            ss[json[this.hostHotPointer].time] = Number.isNaN(topList[j].hot) ? 10 : topList[j].hot
-            tmpData.push(ss)
-          } else {
-            tmpData[index][json[this.hostHotPointerr].time] = Number.isNaN(topList[j].hot) ? 10 : topList[j].hot
-            tmpData[index].currentTime = json[this.hostHotPointer].time
+          let ss = {
+            'category': topList[j].host,
+            'nickname': topList[j].host,
+            'currentTime': json[this.hostHotPointer].time
           }
+          ss[json[this.hostHotPointer].time] = Number.isNaN(topList[j].hot) ? 10 : topList[j].hot
+          tmpData.push(ss)
         }
         bus.$emit('raceData', tmpData)
         this.hostHotPointer ++
@@ -247,18 +239,15 @@ export default {
       let list = json.list
 
       let tmpData = []
-      let currentTime = moment().format('h:mm')
+      let currentTime = moment().format('H:mm')
       for (let i = 0; i < list.length; i++) {
-        let index = tmpData.findIndex(dd => dd.category === list.host)
-          if (index < 0) {
-            let ss = {
-              'category': list[i].host,
-              'nickname': list[i].host,
-              'currentTime': currentTime
-            }
-            ss[currentTime] = Number.isNaN(list[i].hot) ? 10 : list[i].hot
-            tmpData.push(ss)
-          }
+        let ss = {
+          'category': list[i].host,
+          'nickname': list[i].host,
+          'currentTime': currentTime
+        }
+        ss[currentTime] = Number.isNaN(list[i].hot) ? 10 : list[i].hot
+        tmpData.push(ss)
       }
 
       bus.$emit('raceData', tmpData)
@@ -267,10 +256,41 @@ export default {
     async handleHostWorlCloud(host) {
       console.log(host)
       this.current = 'word-cloud'
+
+      let startURL = 'http://127.0.0.1:5000/barrage/start?name=' + host
+      startURL = encodeURI(startURL)
+      let response = await fetch(startURL)
+      if (response.ok) {
+        this.wordCloudTimeId = setInterval(async () => {
+          let response = await fetch('http://127.0.0.1:5000/barrage/get')
+          let json = await response.json()
+          if (json.length > 50) {
+            json = json.slice(0, 50)
+          }
+          let wordData = json.map((data) => {
+            return [data.word, data.count]
+          })
+          this.testData = wordData
+          console.log(this.testData)
+        }, 5000)
+      } else {
+        console.log('start failed')
+      }
     },
-    handleReturn () {
+    async handleStopHostWorlCloud () {
+      clearInterval(this.wordCloudTimeId)
+      let response = await fetch('http://127.0.0.1:5000/barrage/stop')
+      this.testData = []
+        if (response.ok) {
+          console.log('barrage stop')
+        } else {
+          console.log('barrage stop failed')
+      }
+    },
+    async handleReturn () {
       if (this.current === 'word-cloud') {
         this.handleRecentCategoryData(this.currentCategory, this.currentNickname)
+        await this.handleStopHostWorlCloud()
       } else if (this.current === 'recent-host') {
         this.initWithRecentData()
       } else if (this.current === 'host') {
@@ -295,7 +315,16 @@ export default {
 
   mounted() {
     this.initWithRecentData()
-  }
+  },
+
+  sockets: {
+    connect () {
+      console.log("connect");
+    },
+    disconnect () {
+      console.log("disconnect");
+    }
+  },
 };
 </script>
 
